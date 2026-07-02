@@ -1,5 +1,6 @@
 class Stop < ApplicationRecord
   belongs_to :route, counter_cache: true
+  has_many :stop_visits, dependent: :destroy
 
   validates :name, presence: true
   validates :sequence, presence: true, numericality: { only_integer: true, greater_than: 0 }

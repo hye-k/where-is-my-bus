@@ -9,6 +9,7 @@ Rails.application.routes.draw do
   # Traccar 위치 포워딩 수신 (머신 간)
   namespace :integrations do
     post "traccar/positions", to: "traccar#positions"
+    post "traccar/events",    to: "traccar#events"
   end
 
   # 관리자

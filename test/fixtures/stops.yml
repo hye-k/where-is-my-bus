@@ -1,0 +1,6 @@
+one:
+  route: one
+  name: 고성터미널
+  sequence: 1
+  lat: 35.0
+  lng: 128.0

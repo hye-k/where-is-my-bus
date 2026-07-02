@@ -17,6 +17,7 @@ module Admin
     def create
       @stop = Stop.new(stop_params)
       if @stop.save
+        sync_geofence
         redirect_to admin_stops_path(route_id: @stop.route_id), notice: "정류장이 등록되었습니다."
       else
         render :new, status: :unprocessable_entity
@@ -28,6 +29,7 @@ module Admin
 
     def update
       if @stop.update(stop_params)
+        sync_geofence
         redirect_to admin_stops_path(route_id: @stop.route_id), notice: "정류장이 수정되었습니다."
       else
         render :edit, status: :unprocessable_entity
@@ -36,6 +38,7 @@ module Admin
 
     def destroy
       route_id = @stop.route_id
+      TraccarGeofenceSync.destroy(@stop)
       @stop.destroy
       redirect_to admin_stops_path(route_id: route_id), notice: "정류장이 삭제되었습니다.", status: :see_other
     end
@@ -48,6 +51,11 @@ module Admin
 
     def stop_params
       params.require(:stop).permit(:route_id, :name, :sequence, :lat, :lng, :avg_travel_seconds, :name_en)
+    end
+
+    def sync_geofence
+      result = TraccarGeofenceSync.call(@stop)
+      flash[:alert] = result.error if result.failure?
     end
   end
 end

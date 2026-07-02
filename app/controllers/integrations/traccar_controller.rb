@@ -28,6 +28,27 @@ module Integrations
       head :ok
     end
 
+    # POST /integrations/traccar/events
+    def events
+      event = params[:event] || {}
+      return head :ok unless %w[geofenceEnter geofenceExit].include?(event[:type])
+
+      stop = Stop.find_by(traccar_geofence_id: event[:geofenceId])
+      bus  = Bus.find_by(traccar_unique_id: params.dig(:device, :uniqueId))
+      return head :ok if stop.nil? || bus.nil?
+
+      trip = bus.trips.where(ended_at: nil).order(started_at: :desc).first
+      return head :ok unless trip
+
+      trip.stop_visits.create!(
+        stop: stop,
+        event_type: event[:type] == "geofenceEnter" ? "enter" : "exit",
+        occurred_at: parse_time(event[:eventTime])
+      )
+
+      head :ok
+    end
+
     private
 
     def authenticate_ingest!
