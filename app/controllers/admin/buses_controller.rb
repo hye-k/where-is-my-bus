@@ -35,6 +35,7 @@ module Admin
     end
 
     def destroy
+      @bus.routes.each { |route| route.stops.each { |stop| TraccarGeofenceSync.destroy(stop) } }
       @bus.destroy
       redirect_to admin_buses_path, notice: "차량이 삭제되었습니다.", status: :see_other
     end

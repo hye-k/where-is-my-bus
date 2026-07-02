@@ -48,7 +48,7 @@ class TraccarGeofenceSync
 
       link_device(bus.traccar_device_id, stop.traccar_geofence_id)
       Result.new(success: true)
-    rescue => e
+    rescue Timeout::Error, Net::OpenTimeout, Net::ReadTimeout, SocketError, Errno::ECONNREFUSED, Errno::ECONNRESET, JSON::ParserError, RuntimeError, ActiveRecord::RecordInvalid => e
       Rails.logger.error("[TraccarGeofenceSync] #{stop.id}: #{e.class} #{e.message}")
       Result.new(success: false, error: "geofence 동기화 실패: #{e.message}")
     end
@@ -58,7 +58,7 @@ class TraccarGeofenceSync
 
       request(:delete, "/api/geofences/#{stop.traccar_geofence_id}")
       Result.new(success: true)
-    rescue => e
+    rescue Timeout::Error, Net::OpenTimeout, Net::ReadTimeout, SocketError, Errno::ECONNREFUSED, Errno::ECONNRESET, JSON::ParserError, RuntimeError, ActiveRecord::RecordInvalid => e
       Rails.logger.error("[TraccarGeofenceSync] destroy #{stop.id}: #{e.class} #{e.message}")
       Result.new(success: false, error: "geofence 삭제 실패: #{e.message}")
     end

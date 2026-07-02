@@ -35,6 +35,7 @@ module Admin
     end
 
     def destroy
+      @area.routes.each { |route| route.stops.each { |stop| TraccarGeofenceSync.destroy(stop) } }
       @area.destroy
       redirect_to admin_areas_path, notice: "운행지역이 삭제되었습니다.", status: :see_other
     end

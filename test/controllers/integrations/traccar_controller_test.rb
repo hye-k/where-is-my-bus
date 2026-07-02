@@ -46,12 +46,35 @@ class Integrations::TraccarControllerTest < ActionDispatch::IntegrationTest
     assert_response :ok
   end
 
-  test "acks ok and creates nothing when device has no active trip" do
+  test "auto-creates a trip and creates a StopVisit when no active trip exists yet" do
     @trip.update!(ended_at: Time.current)
+
+    assert_difference("StopVisit.count", 1) do
+      assert_difference("Trip.count", 1) do
+        post integrations_traccar_events_path,
+          params: geofence_event_payload,
+          headers: { "X-Ingest-Token" => "dev-traccar-token" },
+          as: :json
+      end
+    end
+
+    assert_response :ok
+    visit = StopVisit.last
+    assert_equal @stop, visit.stop
+    assert visit.trip.active?
+  end
+
+  test "does not create a duplicate StopVisit when the same event is retried" do
+    payload = geofence_event_payload
+
+    post integrations_traccar_events_path,
+      params: payload,
+      headers: { "X-Ingest-Token" => "dev-traccar-token" },
+      as: :json
 
     assert_no_difference("StopVisit.count") do
       post integrations_traccar_events_path,
-        params: geofence_event_payload,
+        params: payload,
         headers: { "X-Ingest-Token" => "dev-traccar-token" },
         as: :json
     end

@@ -30,4 +30,12 @@ class StopVisitTest < ActiveSupport::TestCase
     assert_not visit.valid?
     assert_includes visit.errors[:occurred_at], "can't be blank"
   end
+
+  test "invalid when a StopVisit with the same trip, stop, event_type, and occurred_at already exists" do
+    existing = StopVisit.create!(stop: stops(:one), trip: trips(:active), event_type: "enter", occurred_at: Time.current)
+    dup = StopVisit.new(stop: existing.stop, trip: existing.trip, event_type: existing.event_type, occurred_at: existing.occurred_at)
+
+    assert_not dup.valid?
+    assert_includes dup.errors[:trip_id], "has already been taken"
+  end
 end

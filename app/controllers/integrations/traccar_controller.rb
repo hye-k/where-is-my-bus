@@ -38,7 +38,7 @@ module Integrations
       return head :ok if stop.nil? || bus.nil?
 
       trip = bus.trips.where(ended_at: nil).order(started_at: :desc).first
-      return head :ok unless trip
+      trip ||= bus.trips.create!(started_at: Time.current)
 
       trip.stop_visits.create!(
         stop: stop,
@@ -46,6 +46,8 @@ module Integrations
         occurred_at: parse_time(event[:eventTime])
       )
 
+      head :ok
+    rescue ActiveRecord::RecordInvalid
       head :ok
     end
 

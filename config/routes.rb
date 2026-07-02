@@ -19,7 +19,11 @@ Rails.application.routes.draw do
     resources :regions
     resources :areas
     resources :routes
-    resources :stops
+    resources :stops do
+      member do
+        post :sync_geofence
+      end
+    end
     resources :buses
   end
 

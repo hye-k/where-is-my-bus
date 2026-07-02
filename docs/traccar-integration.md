@@ -42,7 +42,7 @@
 
 - **모델**: `stops.traccar_geofence_id`(Traccar geofence id) / 신규 `StopVisit`(stop_id, trip_id, event_type enter/exit, occurred_at).
 - **Outbound**: `Admin::StopsController`가 Stop 저장/삭제 시 `TraccarGeofenceSync`를 호출해 Traccar에 사각형(변 30m) geofence를 생성/수정/삭제하고 `route.bus`의 device에 연결. `route.bus`가 없으면 조용히 스킵. API 실패 시 Stop 저장은 유지되고 admin에 flash 경고만 표시.
-- **Inbound**: `POST /integrations/traccar/events` — 기존 `X-Ingest-Token` 인증 재사용. `event.type`이 `geofenceEnter`/`geofenceExit`일 때만 처리, `geofenceId`→`Stop`, `device.uniqueId`→`Bus` 매핑 후 활성 `Trip`에 `StopVisit` 생성. 매핑 실패/활성 trip 없음은 200 ack로 무시.
+- **Inbound**: `POST /integrations/traccar/events` — 기존 `X-Ingest-Token` 인증 재사용. `event.type`이 `geofenceEnter`/`geofenceExit`일 때만 처리, `geofenceId`→`Stop`, `device.uniqueId`→`Bus` 매핑 후 그 버스의 **열린 Trip**(없으면 생성, `positions`와 동일)에 `StopVisit` 생성. 매핑 실패(알 수 없는 stop/device)는 200 ack로 무시.
 - **운영 측 추가 설정**: `traccar.xml`에 `event.forward.url` 별도 추가 필요(`forward.url`과는 다른 엔드포인트 `/integrations/traccar/events`).
 
 ```xml

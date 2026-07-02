@@ -67,6 +67,28 @@ class TraccarGeofenceSyncTest < ActiveSupport::TestCase
     assert_match(/geofence/i, result.error)
   end
 
+  test "call re-raises unexpected programming errors instead of swallowing them into a Result" do
+    stop = stops(:one)
+    bus  = stop.route.bus
+    bus.update!(traccar_device_id: 42)
+
+    # Minitest 6 dropped Minitest::Mock#stub into a separate gem not present in this
+    # environment, so we force the same failure mode (an unexpected NoMethodError deep
+    # inside `call`) via a temporary singleton method override instead.
+    original_method = TraccarGeofenceSync.method(:rectangle_wkt)
+    TraccarGeofenceSync.define_singleton_method(:rectangle_wkt) do |*|
+      raise NoMethodError, "boom"
+    end
+
+    begin
+      assert_raises(NoMethodError) do
+        TraccarGeofenceSync.call(stop)
+      end
+    ensure
+      TraccarGeofenceSync.define_singleton_method(:rectangle_wkt, original_method)
+    end
+  end
+
   test "destroy removes geofence from Traccar when stop has traccar_geofence_id" do
     stop = stops(:one)
     stop.update!(traccar_geofence_id: 99)
