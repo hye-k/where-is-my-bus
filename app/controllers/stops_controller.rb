@@ -29,7 +29,7 @@ class StopsController < ApplicationController
     all_stops = @stop.route.stops.order(:sequence).to_a
 
     trip, latest_gps = active_trip_with_gps(@bus)
-    bus_stop = nearest_stop(all_stops, latest_gps)
+    bus_stop = trip ? current_bus_stop(trip, all_stops, latest_gps) : nil
 
     @route_stops = all_stops.map do |s|
       { seq: s.sequence, name: s.display_name,
@@ -47,13 +47,15 @@ class StopsController < ApplicationController
 
     trip, latest_gps = active_trip_with_gps(bus)
     return render json: { eta_minutes: nil, stops_away: nil, bus_number: bus.bus_number, status: "no_trip" } unless trip
-    return render json: { status: "no_data", eta_minutes: nil, stops_away: nil, bus_number: bus.bus_number } unless latest_gps
 
     all_stops = target_stop.route.stops.order(:sequence).to_a
-    bus_stop  = nearest_stop(all_stops, latest_gps)
+    bus_stop  = current_bus_stop(trip, all_stops, latest_gps)
     return render json: { status: "no_data", eta_minutes: nil, stops_away: nil, bus_number: bus.bus_number } unless bus_stop
 
     if bus_stop.sequence >= target_stop.sequence
+      # 구간 보간은 GPS 좌표 기반이므로, GPS가 없으면(StopVisit만 있는 경우) 계산 불가
+      return render json: { status: "no_data", eta_minutes: nil, stops_away: nil, bus_number: bus.bus_number } unless latest_gps
+
       # 마지막 구간(-1 → 현재) 진행률 계산
       prev_stop = all_stops.find { |s| s.sequence == target_stop.sequence - 1 }
       seg_seconds = target_stop.avg_travel_seconds.to_i
@@ -225,6 +227,13 @@ class StopsController < ApplicationController
 
     latest_gps = trip.gps_logs.order(recorded_at: :desc).first
     [ trip, latest_gps ]
+  end
+
+  # 버스가 지금 어느 정류장 근처인지 판정. geofence event(StopVisit)를 1차 신호로,
+  # 없으면 GPS 최근접 계산으로 fallback
+  def current_bus_stop(trip, all_stops, latest_gps)
+    visit_stop = trip.stop_visits.where(stop: all_stops).order(occurred_at: :desc).first&.stop
+    visit_stop || nearest_stop(all_stops, latest_gps)
   end
 
   # GPS 좌표에 가장 가까운 정류장을 반환 (gps가 nil이면 nil 반환)
