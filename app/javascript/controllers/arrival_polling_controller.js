@@ -1,5 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
-import { ga4Event } from "../ga4"
+import { ga4Event } from "ga4"
 
 export default class extends Controller {
   static targets = ["eta", "stopsAway", "busMarker"]
@@ -72,18 +72,9 @@ export default class extends Controller {
         }
       }
 
-      if (this.hasBusMarkerTarget) {
-        let pct
-        if (data.bar_pct != null) {
-          pct = data.bar_pct
-        } else {
-          const stops = data.stops_away ?? 1
-          if      (stops >= 3) pct = 3
-          else if (stops === 2) pct = 15
-          else if (stops === 1) pct = 30
-          else                  pct = 90
-        }
-        this.busMarkerTarget.style.left = `${pct}%`
+      // 버스 마커 위치는 서버가 노선 내 위치(bar_pct)로 계산해 내려준다
+      if (this.hasBusMarkerTarget && data.bar_pct != null) {
+        this.busMarkerTarget.style.left = `${data.bar_pct}%`
       }
     } catch {
       // 네트워크 오류 시 현재 표시 유지
