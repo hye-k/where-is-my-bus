@@ -1,0 +1,22 @@
+one:
+  route: one
+  name: 고성터미널
+  sequence: 1
+  lat: 35.0
+  lng: 128.0
+
+two:
+  route: one
+  name: 배둔
+  sequence: 2
+  lat: 35.01
+  lng: 128.01
+  avg_travel_seconds: 300
+
+three:
+  route: one
+  name: 고성종점
+  sequence: 3
+  lat: 35.02
+  lng: 128.02
+  avg_travel_seconds: 300

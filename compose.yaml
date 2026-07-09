@@ -1,0 +1,26 @@
+# 개발/테스트용 로컬 실행 환경 (Ruby 4.0.2 툴체인이 없는 장비 대비).
+#
+#   docker compose build                                  # 최초 1회 이미지 빌드
+#   docker compose run --rm web bin/rails test            # 전체 테스트
+#   docker compose run --rm web bin/rails test PATH        # 특정 파일 테스트
+#   docker compose up                                     # 개발 서버 → http://localhost:3000
+#
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    volumes:
+      - .:/rails                    # 소스 실시간 반영
+      - bundle:/usr/local/bundle    # gem 영속(빌드 시 설치분을 최초 시딩)
+    ports:
+      - "3000:3000"
+    environment:
+      RAILS_ENV: development
+    command: >
+      bash -c "bin/rails db:prepare &&
+               bin/rails tailwindcss:build &&
+               bin/rails server -b 0.0.0.0 -p 3000"
+
+volumes:
+  bundle:

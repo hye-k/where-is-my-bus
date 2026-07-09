@@ -1,0 +1,30 @@
+# 개발/테스트 전용 컨테이너. 프로덕션용 Dockerfile 과 분리한다.
+# 소스는 compose 에서 볼륨 마운트하고, 여기서는 gem 의존성만 미리 설치해 캐시한다.
+# (로컬에 Ruby 4.0.2 툴체인이 없는 장비에서 test/server 를 돌리기 위한 용도)
+ARG RUBY_VERSION=4.0.2
+FROM docker.io/library/ruby:${RUBY_VERSION}-slim
+
+WORKDIR /rails
+
+# gem 빌드 + 런타임(sqlite, vips, yaml) 에 필요한 패키지
+RUN apt-get update -qq && \
+    apt-get install --no-install-recommends -y \
+      build-essential git curl libvips libyaml-dev pkg-config \
+      sqlite3 libsqlite3-dev && \
+    rm -rf /var/lib/apt/lists /var/cache/apt/archives
+
+ENV BUNDLE_PATH="/usr/local/bundle"
+
+# TLS 를 가로채는 로컬 프록시가 있는 장비 대비: ca-bundle.pem(장비별 파일, .gitignore)이 있으면
+# 시스템 신뢰 저장소에 추가한다. 없어도 빌드는 정상 진행된다(glob 이라 매치 없으면 no-op).
+COPY ca-bundle.p[e]m ./
+RUN if [ -f ca-bundle.pem ]; then cat ca-bundle.pem >> /etc/ssl/certs/ca-certificates.crt; fi
+ENV SSL_CERT_FILE="/etc/ssl/certs/ca-certificates.crt" \
+    BUNDLE_SSL_CA_CERT="/etc/ssl/certs/ca-certificates.crt"
+
+# 의존성 먼저 설치 — 소스 변경과 무관하게 레이어 캐시
+COPY Gemfile Gemfile.lock ./
+RUN bundle install
+
+EXPOSE 3000
+CMD ["bash"]

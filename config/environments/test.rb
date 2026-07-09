@@ -45,6 +45,12 @@ Rails.application.configure do
   # Raises error for missing translations.
   # config.i18n.raise_on_missing_translations = true
 
+  # Fall back ko -> en so ActiveRecord's built-in validation messages (e.g. "can't be
+  # blank") resolve in tests. config/locales/ko.yml has no activerecord.errors
+  # translations, and default_locale is :ko, so without this every validation error
+  # message renders as "Translation missing" (affects all models, not just new ones).
+  config.i18n.fallbacks = [ :en ]
+
   # Annotate rendered view with file names.
   # config.action_view.annotate_rendered_view_with_filenames = true
 

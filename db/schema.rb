@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_21_035326) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_02_152112) do
   create_table "areas", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "name", null: false
@@ -105,6 +105,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_21_035326) do
     t.index ["stop_id", "session_token", "created_at"], name: "index_stop_likes_on_stop_session_created"
   end
 
+  create_table "stop_visits", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "event_type", null: false
+    t.datetime "occurred_at", null: false
+    t.integer "stop_id", null: false
+    t.integer "trip_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["stop_id"], name: "index_stop_visits_on_stop_id"
+    t.index ["trip_id", "stop_id", "event_type", "occurred_at"], name: "index_stop_visits_on_trip_stop_event_occurred_at", unique: true
+    t.index ["trip_id"], name: "index_stop_visits_on_trip_id"
+  end
+
   create_table "stops", force: :cascade do |t|
     t.integer "avg_travel_seconds"
     t.datetime "created_at", null: false
@@ -114,9 +126,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_21_035326) do
     t.string "name_en"
     t.integer "route_id", null: false
     t.integer "sequence", default: 0, null: false
+    t.integer "traccar_geofence_id"
     t.datetime "updated_at", null: false
     t.index ["route_id", "sequence"], name: "index_stops_on_route_id_and_sequence"
     t.index ["route_id"], name: "index_stops_on_route_id"
+    t.index ["traccar_geofence_id"], name: "index_stops_on_traccar_geofence_id"
   end
 
   create_table "trips", force: :cascade do |t|
@@ -147,6 +161,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_21_035326) do
   add_foreign_key "sessions", "users"
   add_foreign_key "stop_likes", "buses"
   add_foreign_key "stop_likes", "stops"
+  add_foreign_key "stop_visits", "stops"
+  add_foreign_key "stop_visits", "trips"
   add_foreign_key "stops", "routes"
   add_foreign_key "trips", "buses"
 end

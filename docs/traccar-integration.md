@@ -13,9 +13,11 @@
 ```
 운전자 폰 (Traccar Client, OsmAnd :5055)
    └─ GPS(id·lat·lon) ─▶ Traccar 서버 (Docker, API :8082)
-                              └─ 위치 포워딩(JSON POST) ─▶ Rails  POST /integrations/traccar/positions
-                                                              └─ Bus 매핑 → Trip → GpsLog 적재
-                                                                    └─ 기존 stops#arrival(폴링)이 읽어 시민 웹에 표시
+                              ├─ 위치 포워딩(JSON POST) ─▶ Rails  POST /integrations/traccar/positions
+                              │                                └─ Bus 매핑 → Trip → GpsLog 적재
+                              │                                      └─ 기존 stops#arrival(폴링)이 읽어 시민 웹에 표시
+                              └─ geofence 이벤트(JSON POST) ─▶ Rails  POST /integrations/traccar/events
+                                                                   └─ Stop/Bus 매핑 → StopVisit 적재
 ```
 
 ## Rails 수신 측 (구현 완료 — Phase 1)
@@ -36,6 +38,24 @@
 <entry key='forward.header'>X-Ingest-Token: <비밀토큰></entry>
 ```
 
+## Geofence 동기화 (구현 완료 — Phase 1.5)
+
+- **모델**: `stops.traccar_geofence_id`(Traccar geofence id) / 신규 `StopVisit`(stop_id, trip_id, event_type enter/exit, occurred_at).
+- **Outbound**: `Admin::StopsController`가 Stop 저장/삭제 시 `TraccarGeofenceSync`를 호출해 Traccar에 사각형(변 30m) geofence를 생성/수정/삭제하고 `route.bus`의 device에 연결. `route.bus`가 없으면 조용히 스킵. API 실패 시 Stop 저장은 유지되고 admin에 flash 경고만 표시.
+- **Inbound**: `POST /integrations/traccar/events` — 기존 `X-Ingest-Token` 인증 재사용. `event.type`이 `geofenceEnter`/`geofenceExit`일 때만 처리, `geofenceId`→`Stop`, `device.uniqueId`→`Bus` 매핑 후 그 버스의 **열린 Trip**(없으면 생성, `positions`와 동일)에 `StopVisit` 생성. 매핑 실패(알 수 없는 stop/device)는 200 ack로 무시.
+- **운영 측 추가 설정**: `traccar.xml`에 `event.forward.url` 별도 추가 필요(`forward.url`과는 다른 엔드포인트 `/integrations/traccar/events`).
+
+```xml
+<entry key='event.forward.enable'>true</entry>
+<entry key='event.forward.url'>https://<오리진>/integrations/traccar/events</entry>
+<entry key='event.forward.json'>true</entry>
+<entry key='event.forward.header'>X-Ingest-Token: <비밀토큰></entry>
+```
+
+- **Traccar API 자격증명**: geofence 생성/수정/삭제(outbound) 호출 시 Traccar 관리자 계정으로 인증. `credentials[:traccar][:api_base_url]` / `[:api_email]` / `[:api_password]`로 관리(`bin/rails credentials:edit`).
+
+> 시민 화면 반영(도착정보 페이지에 방문 이력 표시)은 별도 단계로 로드맵에 남겨둠. Route-Bus 1:N 구조 전환도 별도 작업.
+
 ## 운영 측 (운영자가 수행 — 미구현/수동)
 
 - **Traccar 서버**: Docker(`traccar/traccar`)로 기동, 데이터 볼륨 + `traccar.xml` 영속화. 포트 8082(API/WS), 5055(OsmAnd 수신).
@@ -54,6 +74,7 @@
 |---|---|---|
 | 0 | Traccar Docker 기동 + Traccar Client로 위치 수신 확인 | 운영 수동 |
 | 1 | Rails 수신 엔드포인트 + 모델 컬럼 + 포워딩 → GpsLog 적재 | **완료** |
+| 1.5 | Stop geofence 동기화(Traccar) + geofence 이벤트 수신 → StopVisit 적재 | **완료** |
 | 2 | 차량 등록 시 Traccar 디바이스 자동 프로비저닝(REST API) + admin 단말 상태 표시 | 예정 |
 | 3 | Trip 자동 종료(오프라인/타임아웃, Solid Queue) | 예정 |
 

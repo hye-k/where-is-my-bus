@@ -16,8 +16,7 @@ module Integrations
       # 알 수 없는 단말/좌표 누락은 조용히 무시(ack) — 포워딩 재시도 폭주 방지
       return head :ok if bus.nil? || lat.blank? || lng.blank?
 
-      trip = bus.trips.where(ended_at: nil).order(started_at: :desc).first
-      trip ||= bus.trips.create!(started_at: Time.current)
+      trip = bus.find_or_create_active_trip!
 
       trip.gps_logs.create!(
         lat: lat,
@@ -25,6 +24,28 @@ module Integrations
         recorded_at: parse_time(pos[:fixTime] || pos[:deviceTime])
       )
 
+      head :ok
+    end
+
+    # POST /integrations/traccar/events
+    def events
+      event = params[:event] || {}
+      return head :ok unless %w[geofenceEnter geofenceExit].include?(event[:type])
+
+      stop = Stop.find_by(traccar_geofence_id: event[:geofenceId])
+      bus  = Bus.find_by(traccar_unique_id: params.dig(:device, :uniqueId))
+      return head :ok if stop.nil? || bus.nil?
+
+      trip = bus.find_or_create_active_trip!
+
+      trip.stop_visits.create!(
+        stop: stop,
+        event_type: event[:type] == "geofenceEnter" ? "enter" : "exit",
+        occurred_at: parse_time(event[:eventTime])
+      )
+
+      head :ok
+    rescue ActiveRecord::RecordInvalid
       head :ok
     end
 

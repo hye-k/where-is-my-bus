@@ -28,7 +28,9 @@
         <tr class="hover:bg-gray-50">
           <td class="px-5 py-3 text-gray-400"><%= stop.sequence %></td>
           <% unless @route %><td class="px-5 py-3 text-gray-500"><%= stop.route.name %></td><% end %>
-          <td class="px-5 py-3 font-medium"><%= stop.name %></td>
+          <td class="px-5 py-3 font-medium">
+            <%= link_to stop.name, admin_stop_path(stop), class: "text-indigo-600 hover:text-indigo-800 hover:underline" %>
+          </td>
           <td class="px-5 py-3 text-gray-500">
             <% if stop.coordinates? %>
               <span class="font-mono text-xs"><%= stop.lat %>, <%= stop.lng %></span>
@@ -36,11 +38,18 @@
               <span class="text-xs text-amber-600">미등록</span>
             <% end %>
           </td>
-          <td class="px-5 py-3 text-right space-x-3">
-            <%= link_to "수정", edit_admin_stop_path(stop), class: "text-gray-500 hover:text-gray-900" %>
-            <%= button_to "삭제", admin_stop_path(stop), method: :delete,
-                  form: { data: { turbo_confirm: "삭제하시겠습니까?" }, class: "inline" },
-                  class: "text-red-500 hover:text-red-700" %>
+          <td class="px-5 py-3 text-right">
+            <div class="flex items-center justify-end gap-3">
+              <% if Rails.env.local? %>
+                <%= button_to "버스 도착 mock", mock_visit_admin_stop_path(stop), method: :post,
+                      form: { class: "inline" },
+                      class: "text-amber-600 hover:text-amber-800 font-medium" %>
+              <% end %>
+              <%= link_to "수정", edit_admin_stop_path(stop), class: "text-gray-500 hover:text-gray-900" %>
+              <%= button_to "삭제", admin_stop_path(stop), method: :delete,
+                    form: { data: { turbo_confirm: "삭제하시겠습니까?" }, class: "inline" },
+                    class: "text-red-500 hover:text-red-700" %>
+            </div>
           </td>
         </tr>
       <% end %>

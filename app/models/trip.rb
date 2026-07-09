@@ -1,6 +1,7 @@
 class Trip < ApplicationRecord
   belongs_to :bus
   has_many :gps_logs, dependent: :destroy
+  has_many :stop_visits, dependent: :destroy
 
   validates :started_at, presence: true
 

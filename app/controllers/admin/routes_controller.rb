@@ -35,6 +35,7 @@ module Admin
     end
 
     def destroy
+      @route.stops.each { |stop| TraccarGeofenceSync.destroy(stop) }
       @route.destroy
       redirect_to admin_routes_path, notice: "노선이 삭제되었습니다.", status: :see_other
     end

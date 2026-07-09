@@ -58,6 +58,8 @@ bin/rails db:prepare   # 스키마 생성 + 시드(통영시 욕지도 35번 등
 bin/dev                # 서버 + Tailwind watch 동시 실행
 ```
 
+로컬에 Ruby 4.0.2 툴체인을 설치할 수 없다면(사내 정책 등) Docker로도 개발할 수 있다 — [`docs/development-environment.md`](docs/development-environment.md) 참고.
+
 접속:
 
 - 시민 서비스: <http://localhost:3000/>
@@ -142,5 +144,6 @@ QR 스티커 URL에 UTM 파라미터를 추가하면 GA4 트래픽 소스에서 
 
 ## 개발 메모
 
-- 테스트는 `--skip-test`로 생략된 상태(추후 RSpec 등 선택 도입 가능)
+- 테스트: Minitest(`bin/rails test`) + WebMock. 외부 API(Traccar) 연동 테스트는 `stub_request`로 격리.
 - 관리자 영역은 `Admin::BaseController`에서 운영자 권한을 강제
+- Rails 환경(development/test/production) 모델과 `Rails.env.local?` 사용 기준, Docker 개발 환경은 [`docs/development-environment.md`](docs/development-environment.md) 참고
