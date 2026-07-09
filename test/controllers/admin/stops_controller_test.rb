@@ -70,4 +70,51 @@ class Admin::StopsControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to admin_stop_path(stop)
     assert_match(/geofence/i, flash[:alert])
   end
+
+  test "mock_visit attaches an enter StopVisit to the active trip without creating a new trip" do
+    stop = stops(:one)
+
+    assert_difference("StopVisit.count", 1) do
+      assert_no_difference("Trip.count") do
+        post mock_visit_admin_stop_path(stop)
+      end
+    end
+
+    visit = StopVisit.order(:id).last
+    assert_equal stop.id, visit.stop_id
+    assert_equal trips(:active).id, visit.trip_id
+    assert_equal "enter", visit.event_type
+    assert_redirected_to admin_stop_path(stop)
+    assert_match(/mock/i, flash[:notice])
+  end
+
+  test "mock_visit creates a new trip when the bus has no active trip" do
+    trips(:active).update!(ended_at: Time.current)
+    stop = stops(:one)
+
+    assert_difference([ "StopVisit.count", "Trip.count" ], 1) do
+      post mock_visit_admin_stop_path(stop)
+    end
+  end
+
+  test "mock_visit redirects back to the referring page (e.g. the stops list)" do
+    stop = stops(:one)
+    list_url = admin_stops_path(route_id: routes(:one).id)
+
+    post mock_visit_admin_stop_path(stop), headers: { "HTTP_REFERER" => list_url }
+
+    assert_redirected_to list_url
+  end
+
+  test "mock_visit shows alert and creates nothing when the route has no bus" do
+    routes(:one).update!(bus: nil)
+    stop = stops(:one)
+
+    assert_no_difference("StopVisit.count") do
+      post mock_visit_admin_stop_path(stop)
+    end
+
+    assert_redirected_to admin_stop_path(stop)
+    assert flash[:alert].present?
+  end
 end

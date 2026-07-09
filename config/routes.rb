@@ -22,6 +22,8 @@ Rails.application.routes.draw do
     resources :stops do
       member do
         post :sync_geofence
+        # 실제 Traccar 서버 없이 진행바 아이콘 이동을 확인하기 위한 개발용 mock (production/staging 제외)
+        post :mock_visit if Rails.env.local?
       end
     end
     resources :buses

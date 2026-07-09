@@ -2,7 +2,43 @@
 
 # 다음 세션 인수인계 — Traccar Geofence 동기화 브랜치
 
-마지막 업데이트: 2026-07-09 (같은 날 두 번째 세션)
+마지막 업데이트: 2026-07-09 (세션 3 — mock StopVisit 구현 완료)
+
+## 2026-07-09 세션 3 — mock StopVisit 구현 완료 ✅
+
+세션 2에서 미결이던 "mock 경로 선택"을 **B안(Admin 액션에서 `StopVisit.create!` 직접 호출)**으로
+확정하고 구현·검증 완료. 브랜치는 그대로 두고 이 브랜치 위에서 계속하기로 결정.
+
+### 구현 (커밋 전 — 사용자 요청 시 커밋)
+
+- 설계 문서: `docs/plans/2026-07-09-mock-stop-visit-design.md`
+- `Admin::StopsController#mock_visit`: `@stop.route.bus`의 활성 trip(없으면 생성)에
+  `StopVisit(event_type: "enter", occurred_at: now)` 생성. `Rails.env.local?` 가드(production/staging 제외),
+  버스 미배정 시 alert, `RecordNotUnique` rescue.
+- `config/routes.rb`: `post :mock_visit if Rails.env.local?` (member)
+- `app/views/admin/stops/show.html.erb`: "버스 도착 mock" 버튼(amber, local 전용)
+- `test/controllers/admin/stops_controller_test.rb`: 테스트 3건 추가
+
+### 검증 (실행 완료 — Docker 개발 환경)
+
+- 이 장비엔 Ruby 4.0.2 툴체인이 없어(asdf/rbenv/mise 부재) `Dockerfile.dev` + `compose.yaml`로
+  컨테이너 개발 환경을 새로 구성. 사내 프록시(Zscaler) TLS 가로채기 대응으로 `ca-bundle.pem`(.gitignore)을
+  이미지 CA 저장소에 주입.
+  - `docker compose build` / `docker compose run --rm web bin/rails test` / `docker compose up`(→ :3000)
+- **전체 테스트 32개 통과, rubocop 클린(변경 파일).**
+- 실행 중인 앱에서 시민 `arrival` 엔드포인트 before/after 검증: StopVisit(seq5→seq7) 주입 시
+  `stops_away 4→3→1`, `bar_pct 3→30`으로 진행바 버스 위치가 실제 이동함을 확인.
+- 개발 편의: 컨테이너 DB에 operator 계정 생성(`dev@example.com` / `devpass123`, 첫 유저 자동 승격).
+  시민 URL 예: `http://localhost:3000/r/goseong/8`
+
+### 남은 것
+
+- 육안(브라우저 픽셀) 확인은 서버 기동 상태에서 사용자가 admin 로그인 → 정류장 상세 "버스 도착 mock"
+  클릭 → 시민 페이지에서 아이콘 이동 확인으로 마무리 가능.
+- 이번 세션 변경분 커밋 여부 미결(사용자 요청 대기). Docker 파일(`Dockerfile.dev`/`compose.yaml`)을
+  커밋에 포함할지도 함께 결정 필요.
+
+---
 
 ## 2026-07-09 세션 2 — 진행 중, 미완성 (다음 세션은 여기부터)
 
