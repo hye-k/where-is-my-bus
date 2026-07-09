@@ -42,3 +42,6 @@
 /CLAUDE.md
 /CLAUDE.local.md
 /.mcp.json
+
+# 사내 프록시(Zscaler) CA 번들 — 장비별, 커밋 금지
+/ca-bundle.pem
