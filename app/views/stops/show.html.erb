@@ -119,45 +119,53 @@
         </div>
       </details>
       <% end %>
-    </div>
 
-    <%# 자세히보기 — Turbo Frame으로 P2 위에 오버레이 %>
-    <div class="flex justify-end mb-5">
-      <%= link_to stop_detail_path(region_slug: params[:region_slug], stop_id: params[:stop_id]),
-            data: { turbo_frame: "detail-modal", action: "click->bus-selector#trackViewDetail" },
-            class: "bg-indigo-500 hover:bg-indigo-400 text-white text-sm font-bold px-5 py-2.5 rounded-xl transition-colors" do %>
-        <%= t("stops.show.see_detail") %>
-      <% end %>
-    </div>
-
-    <%# 노선 진행 바 — 현재 정류장 기준 -3/-2/-1/현재 %>
-    <div class="relative h-14">
-      <%# 배경 라인 %>
-      <div class="absolute inset-x-0 top-1/2 h-0.5 bg-white/30 -translate-y-1/2"></div>
-
-      <%# 고정 점: -3 (0%), -2 (15%), -1 (30%) — 우측 70%는 현재 정류장 접근 구간 %>
-      <div class="absolute top-1/2 left-[0%]  -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-white/50 z-10"></div>
-      <div class="absolute top-1/2 left-[15%] -translate-x-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-white/50 z-10"></div>
-      <div class="absolute top-1/2 left-[30%] -translate-x-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-white/50 z-10"></div>
-
-      <%# 목적지 핀 (현재 정류장, 우측) %>
-      <div class="absolute right-0 -top-1 z-10 flex flex-col items-center">
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/>
-          <circle cx="12" cy="10" r="3"/>
-        </svg>
-        <div class="w-3 h-3 rounded-full bg-white mt-0.5"></div>
+      <%# 자세히보기 — 도착 텍스트와 같은 왼쪽 정렬 (Turbo Frame 오버레이) %>
+      <div class="flex justify-start mt-8">
+        <%= link_to stop_detail_path(region_slug: params[:region_slug], stop_id: params[:stop_id]),
+              data: { turbo_frame: "detail-modal", action: "click->bus-selector#trackViewDetail" },
+              class: "bg-indigo-500 hover:bg-indigo-400 text-white text-sm font-bold px-5 py-2.5 rounded-xl transition-colors" do %>
+          <%= t("stops.show.see_detail") %>
+        <% end %>
       </div>
+    </div>
 
-      <%# 버스 아이콘 — stops_away 기반 left% 업데이트 %>
-      <div class="absolute -top-[3px] z-20 flex flex-col items-center -translate-x-1/2 transition-all duration-500"
-           style="left: 50%"
-           data-arrival-polling-target="busMarker">
-        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M8 6v6"/><path d="M15 6v6"/><path d="M2 12h19.6"/>
-          <path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H4a2 2 0 0 0-2 2v10h3"/>
-          <circle cx="7" cy="18" r="2"/><path d="M9 18h5"/><circle cx="16" cy="18" r="2"/>
-        </svg>
+    <%# 노선 진행 바 — 노선 전체 정류장을 점으로(점 수 = 정류장 수) %>
+    <%# @route_stops = [[stop, pct], ...] — 컨트롤러(StopsController#show)가 노선 내 위치(%)를 미리 계산해 전달 %>
+    <% route_stops = @route_stops || []
+       initial_pct = route_stops.find { |s, _| s.id == @stop&.id }&.last || 50 %>
+    <%# 세로 구성: (위) 목적지 핀 · 라인의 정류장 점 · (아래) 버스 아이콘 → 겹침 방지 %>
+    <div class="relative h-20 px-4">
+      <%# 안쪽 트랙 — 좌우 패딩 덕에 0%/100% 마커가 잘리지 않음 %>
+      <div class="relative h-full">
+        <%# 배경 라인 (세로 중앙) %>
+        <div class="absolute inset-x-0 top-1/2 h-0.5 bg-white/30 -translate-y-1/2"></div>
+
+        <% route_stops.each do |s, pct| %>
+          <% here = s.id == @stop&.id %>
+          <% if here %>
+            <%# 목적지 핀 — 라인 위쪽 %>
+            <div class="absolute bottom-1/2 mb-2 -translate-x-1/2 z-10" style="left: <%= pct %>%">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/>
+                <circle cx="12" cy="10" r="3"/>
+              </svg>
+            </div>
+          <% end %>
+          <%# 정류장 점 — 라인 위. 현재 보고 있는 정류장은 흰색 강조 %>
+          <div class="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full z-10 <%= here ? 'bg-white' : 'bg-white/50' %>" style="left: <%= pct %>%"></div>
+        <% end %>
+
+        <%# 버스 아이콘 — 라인 아래쪽. arrival 의 bar_pct(노선 내 위치)로 left% 업데이트 %>
+        <div class="absolute top-1/2 mt-2 -translate-x-1/2 z-20 transition-all duration-500"
+             style="left: <%= initial_pct %>%"
+             data-arrival-polling-target="busMarker">
+          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M8 6v6"/><path d="M15 6v6"/><path d="M2 12h19.6"/>
+            <path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H4a2 2 0 0 0-2 2v10h3"/>
+            <circle cx="7" cy="18" r="2"/><path d="M9 18h5"/><circle cx="16" cy="18" r="2"/>
+          </svg>
+        </div>
       </div>
     </div>
 

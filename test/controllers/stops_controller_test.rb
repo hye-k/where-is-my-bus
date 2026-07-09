@@ -14,6 +14,18 @@ class StopsControllerTest < ActionDispatch::IntegrationTest
     # bus_stop이 GPS 기준(one, sequence 1)이 아니라 StopVisit 기준(two, sequence 2)으로 계산되어야 함
     # target(three, seq 3) 기준 ahead = [three] 1개 → stops_away 1
     assert_equal 1, json["stops_away"]
+    # bar_pct = 노선 내 위치. 정류장 3개(seq1/2/3) 중 seq2 → index1 → 1/2*100 = 50
+    assert_equal 50, json["bar_pct"]
+  end
+
+  test "arrival bar_pct maps the bus stop to its position along the whole route" do
+    trip = trips(:active)
+    # 노선 첫 정류장(seq1)에 버스 → index0 → 0%
+    StopVisit.create!(stop: stops(:one), trip: trip, event_type: "enter", occurred_at: Time.current)
+
+    get stop_arrival_json_path(region_slug: regions(:one).slug, stop_id: stops(:three).id)
+
+    assert_equal 0, JSON.parse(response.body)["bar_pct"]
   end
 
   test "arrival falls back to GPS nearest-stop when no StopVisit exists" do
@@ -42,15 +54,19 @@ class StopsControllerTest < ActionDispatch::IntegrationTest
     assert_equal 2, json["stops_away"]
   end
 
-  test "arrival returns no_data when the matched StopVisit's stop is at/past target but no GPS exists for interpolation" do
+  test "arrival reports arrival (stops_away 0) when StopVisit is at/past target, even without GPS" do
     trip = trips(:active)
-    # GPS 없이 StopVisit만 존재. StopVisit이 target(three, seq 3) 자체를 가리켜 progress 보간이 필요한 상황
+    # GPS 없이 StopVisit만 존재. StopVisit이 target(three, seq 3) 자체를 가리킴.
+    # 점 스냅 방식은 GPS 보간이 필요 없으므로 도착으로 표시(과거엔 no_data 였음)
     StopVisit.create!(stop: stops(:three), trip: trip, event_type: "enter", occurred_at: Time.current)
 
     get stop_arrival_json_path(region_slug: regions(:one).slug, stop_id: stops(:three).id)
 
     json = JSON.parse(response.body)
-    assert_equal "no_data", json["status"]
+    assert_nil json["status"]
+    assert_equal 0, json["stops_away"]
+    # seq3 → index2 → 2/2*100 = 100 (노선 끝)
+    assert_equal 100, json["bar_pct"]
   end
 
   test "detail marks the StopVisit-matched stop as current_bus, not the GPS nearest stop" do

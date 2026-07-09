@@ -11,6 +11,9 @@ class StopsController < ApplicationController
     @likes_count      = @stop ? StopLike.where(stop_id: @stop.id).count : 0
     @already_liked    = @stop ? StopLike.where(stop_id: @stop.id, session_token: token)
                                         .where("created_at > ?", 1.hour.ago).exists? : false
+    # 진행바를 노선 전체 정류장 점으로 렌더하기 위해 순서대로 로드 + 각 점의 노선 내 위치(%)를 미리 계산
+    all_route_stops = @stop&.route ? @stop.route.stops.order(:sequence).to_a : []
+    @route_stops = all_route_stops.each_with_index.map { |s, i| [ s, position_pct(index: i, total: all_route_stops.size) ] }
     load_selector_regions
   end
 
@@ -52,55 +55,21 @@ class StopsController < ApplicationController
     bus_stop  = current_bus_stop(trip, all_stops, latest_gps)
     return render json: { status: "no_data", eta_minutes: nil, stops_away: nil, bus_number: bus.bus_number } unless bus_stop
 
+    # 버스 마커는 노선 전체 정류장 점에 스냅한다 — 버스 정류장의 노선 내 위치(0~100%)
+    bar_pct = position_pct(index: all_stops.index { |s| s.id == bus_stop.id } || 0, total: all_stops.size)
+
     if bus_stop.sequence >= target_stop.sequence
-      # 구간 보간은 GPS 좌표 기반이므로, GPS가 없으면(StopVisit만 있는 경우) 계산 불가
-      return render json: { status: "no_data", eta_minutes: nil, stops_away: nil, bus_number: bus.bus_number } unless latest_gps
-
-      # 마지막 구간(-1 → 현재) 진행률 계산
-      prev_stop = all_stops.find { |s| s.sequence == target_stop.sequence - 1 }
-      seg_seconds = target_stop.avg_travel_seconds.to_i
-
-      progress = if prev_stop
-        seg_len = Math.sqrt(
-          (target_stop.lat.to_f - prev_stop.lat.to_f)**2 +
-          (target_stop.lng.to_f - prev_stop.lng.to_f)**2
-        )
-        bus_dist = Math.sqrt(
-          (latest_gps.lat.to_f - prev_stop.lat.to_f)**2 +
-          (latest_gps.lng.to_f - prev_stop.lng.to_f)**2
-        )
-        seg_len > 0 ? [ bus_dist / seg_len, 1.0 ].min : 1.0
-      else
-        1.0
-      end
-
-      # progress < 1.0: 마지막 구간 진입 중 → stops_away: 1 유지
-      if progress < 1.0
-        remaining = seg_seconds > 0 ? (seg_seconds * (1.0 - progress)).ceil : 0
-        return render json: {
-          eta_minutes: (remaining / 60.0).ceil,
-          stops_away:  1,
-          bus_number:  bus.bus_number,
-          bar_pct:     [ (30 + (90 - 30) * progress).round, 89 ].min
-        }
-      end
-
-      # progress >= 1.0: 실제 도착
+      # 목적지에 도착했거나 이미 지나감
       return render json: {
         eta_minutes: 0,
         stops_away:  0,
         bus_number:  bus.bus_number,
-        bar_pct:     90
+        bar_pct:     bar_pct
       }
     end
 
     ahead = all_stops.select { |s| s.sequence > bus_stop.sequence && s.sequence <= target_stop.sequence }
     total_seconds = ahead.sum { |s| s.avg_travel_seconds.to_i }
-    bar_pct = case ahead.size
-    when 1 then 30
-    when 2 then 15
-    else        3
-    end
 
     render json: {
       eta_minutes: (total_seconds / 60.0).ceil,
@@ -152,12 +121,16 @@ class StopsController < ApplicationController
       GpsLog.create!(trip: trip, lat: gps_lat, lng: gps_lng, recorded_at: Time.current)
     end
 
+    # 진행바 위치: 노선 내 정류장 점 위치 + 다음 점까지 pct 보간 (arrival 의 점 배치와 정렬)
+    idx = all_stops.index { |s| s.id == bus_stop.id } || 0
+    bar_pct = position_pct(index: idx, total: all_stops.size, sub_pct: pct)
+
     if bus_stop.sequence >= debug_target.sequence
       return render json: {
         bus_stop: bus_stop.name, target_stop: debug_target.name,
         bus_lat: gps_lat, bus_lng: gps_lng,
         eta_minutes: 0, stops_away: 0,
-        bar_pct: 90, message: "현위치 도착"
+        bar_pct: bar_pct, message: "현위치 도착"
       }
     end
 
@@ -168,17 +141,6 @@ class StopsController < ApplicationController
       ahead.sum { |s| s.avg_travel_seconds.to_i }
     end
 
-    # 진행바 위치 계산
-    bar_pct = if pct > 0 && ahead.size == 1
-      30 + (90 - 30) * pct / 100  # -1 ~ 현재 구간 보간
-    else
-      case ahead.size
-      when 1 then 30
-      when 2 then 15
-      else 3
-      end
-    end
-
     render json: {
       bus_stop:    bus_stop.name,
       target_stop: debug_target.name,
@@ -186,7 +148,7 @@ class StopsController < ApplicationController
       bus_lng:     gps_lng,
       eta_minutes: (total_seconds / 60.0).ceil,
       stops_away:  ahead.size,
-      bar_pct:     bar_pct.round,
+      bar_pct:     bar_pct,
       via:         ahead.map(&:name)
     }
   end
@@ -234,6 +196,15 @@ class StopsController < ApplicationController
   def current_bus_stop(trip, all_stops, latest_gps)
     visit_stop = trip.stop_visits.where(stop: all_stops).order(occurred_at: :desc).first&.stop
     visit_stop || nearest_stop(all_stops, latest_gps)
+  end
+
+  # 노선 내 index 번째 정류장의 위치를 0~100%로 반환 (진행바의 점 배치 i/(N-1)*100).
+  # sub_pct(0~100): 다음 정류장 방향으로의 보간 비율 — debug_bus 시뮬레이터에서만 사용.
+  # 뷰(app/views/stops/show.html.erb)의 점 배치도 이 공식을 그대로 따른다.
+  def position_pct(index:, total:, sub_pct: 0)
+    return 100 if total <= 1
+
+    [ (((index + sub_pct / 100.0) / (total - 1)) * 100).round, 100 ].min
   end
 
   # GPS 좌표에 가장 가까운 정류장을 반환 (gps가 nil이면 nil 반환)
