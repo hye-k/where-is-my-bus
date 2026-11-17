@@ -113,7 +113,7 @@ class Admin::RegionsControllerTest < ActionDispatch::IntegrationTest
   test "filters are grouped into location and condition areas" do
     get admin_regions_path
 
-    assert_select "[data-role=location-filter] select", count: 4
+    assert_select "[data-role=location-filter] select", count: 3
     assert_select "[data-role=condition-filter]" do
       assert_select "input[name=q]"
       assert_select "fieldset[data-role=status-filter]"
@@ -267,11 +267,10 @@ class Admin::RegionsControllerTest < ActionDispatch::IntegrationTest
     get admin_regions_path(region_id: regions(:pajang).id)
 
     assert_select "form[method=get] input[type=hidden][name=region_id][value=?]", regions(:pajang).id.to_s
-    %w[시도 시군구 읍면동 리].each { |label| assert_select "select[aria-label=?]", label }
+    %w[시도 시군구 읍면동].each { |label| assert_select "select[aria-label=?]", label }
     assert_select "select[aria-label=시도] option[selected]", text: "경기도"
     assert_select "select[aria-label=시군구] option[selected]", text: "수원시 장안구"
     assert_select "select[aria-label=읍면동] option[selected]", text: "파장동"
-    assert_select "select[aria-label=리][disabled]"
   end
 
   test "filter form without a region has only the top level enabled" do
@@ -280,7 +279,22 @@ class Admin::RegionsControllerTest < ActionDispatch::IntegrationTest
     assert_select "select[aria-label=시도]:not([disabled])" do
       assert_select "option", text: "경상남도"
     end
-    %w[시군구 읍면동 리].each { |label| assert_select "select[aria-label=?][disabled]", label }
+    %w[시군구 읍면동].each { |label| assert_select "select[aria-label=?][disabled]", label }
+  end
+
+  test "list shows the configured data attribution and hides it when blank" do
+    original = Rails.configuration.x.region_data_attribution
+    begin
+      Rails.configuration.x.region_data_attribution = "Source: Example Survey"
+      get admin_regions_path
+      assert_select "p", text: "Source: Example Survey"
+
+      Rails.configuration.x.region_data_attribution = ""
+      get admin_regions_path
+      assert_select "p.text-xs.text-gray-400", count: 0
+    ensure
+      Rails.configuration.x.region_data_attribution = original
+    end
   end
 
   test "filter form leaves the skipped level disabled for a region whose children skip a level" do

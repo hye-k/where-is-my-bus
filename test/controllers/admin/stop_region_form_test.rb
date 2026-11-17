@@ -11,15 +11,15 @@ class Admin::StopRegionFormTest < ActionDispatch::IntegrationTest
     assert_select "[data-controller~=region-select]" do
       assert_select "[data-region-select-url-value=?]", children_admin_regions_path
       assert_select "input[type=hidden][name='stop[region_id]'][data-region-select-target=input]"
-      assert_select "[data-region-select-target=container] select", count: 4
-      %w[시도 시군구 읍면동 리].each_with_index do |label, index|
+      assert_select "[data-region-select-target=container] select", count: 3
+      %w[시도 시군구 읍면동].each_with_index do |label, index|
         assert_select "select[aria-label=?][data-level=?]", label, (index + 1).to_s
         assert_select "label[for=region_select_level_#{index + 1}]", text: label
       end
       assert_select "select[aria-label=시도]:not([disabled]) option:not([value=''])", count: 4
       %w[경상남도 경상북도 경기도 세종특별자치시].each { |name| assert_select "option", text: name }
       assert_select "option", text: /폐지시/, count: 0
-      %w[시군구 읍면동 리].each { |label| assert_select "select[aria-label=?][disabled]", label }
+      %w[시군구 읍면동].each { |label| assert_select "select[aria-label=?][disabled]", label }
     end
     assert_select "[data-controller~=stop-map] [data-controller~=region-select]", count: 0
   end
@@ -36,7 +36,7 @@ class Admin::StopRegionFormTest < ActionDispatch::IntegrationTest
     get edit_admin_stop_path(stops(:hospital))
 
     assert_select "input[name='stop[region_id]'][value=?]", regions(:goseong).id.to_s
-    assert_select "[data-region-select-target=container] select", count: 4
+    assert_select "[data-region-select-target=container] select", count: 3
     assert_select "select[aria-label=시도] option[selected]", text: "경상남도"
     assert_select "select[aria-label=시군구] option[selected]", text: "고성군"
     assert_select "select[aria-label=읍면동][disabled]"
@@ -50,7 +50,6 @@ class Admin::StopRegionFormTest < ActionDispatch::IntegrationTest
     assert_select "select[aria-label=시도] option[selected]", text: "경상북도"
     assert_select "select[aria-label=시군구] option[selected]", text: "울릉군"
     assert_select "select[aria-label=읍면동] option[selected]", text: "울릉읍"
-    assert_select "select[aria-label=리][disabled]"
   end
 
   test "a region with active children gets its next level enabled and unselected" do
@@ -81,6 +80,39 @@ class Admin::StopRegionFormTest < ActionDispatch::IntegrationTest
     assert_select "option", text: /폐지시/, count: 0
   end
 
+  test "a deeper level in the data adds a slot for it" do
+    Region.create!(code: "4794025021", name: "저동리", level: 4, kind: "리", parent: regions(:ulleung_eup))
+    get new_admin_stop_path
+
+    assert_select "[data-region-select-target=container] select", count: 4
+    assert_select "select[aria-label=리][disabled]"
+  end
+
+  test "slot labels and count come from the regions' kinds, not a fixed list" do
+    Stop.update_all(region_id: nil)
+    Region.delete_all
+    state = Region.create!(code: "S1", name: "California", level: 1, kind: "State")
+    Region.create!(code: "C1", name: "Alameda", level: 2, kind: "County", parent: state)
+    get new_admin_stop_path
+
+    assert_select "[data-region-select-target=container] select", count: 2
+    assert_select "label[for=region_select_level_1]", text: "State"
+    assert_select "label[for=region_select_level_2]", text: "County"
+    assert_select "select[aria-label=State]:not([disabled]) option", text: "California"
+    assert_select "select[aria-label=County][disabled]"
+  end
+
+  test "a level without any region is labelled by its number" do
+    Stop.update_all(region_id: nil)
+    Region.delete_all
+    region = Region.create!(code: "L1", name: "Top", level: 1, kind: "State")
+    Region.create!(code: "L3", name: "Bottom", level: 3, kind: "Ward", parent: region)
+    get new_admin_stop_path
+
+    assert_select "label[for=region_select_level_2]", text: "2레벨"
+    assert_select "select[aria-label='2레벨'][disabled]"
+  end
+
   test "region comes before the stop name in the form" do
     get new_admin_stop_path
 
@@ -91,7 +123,7 @@ class Admin::StopRegionFormTest < ActionDispatch::IntegrationTest
   test "region selects keep room for the arrow" do
     get new_admin_stop_path
 
-    assert_select "[data-region-select-target=container] select.select-chevron", count: 4
+    assert_select "[data-region-select-target=container] select.select-chevron", count: 3
   end
 
   test "failed create with only a province asks for a city or county" do

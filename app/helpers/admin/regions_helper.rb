@@ -2,14 +2,13 @@ module Admin
   module RegionsHelper
     SELECT_CLASS = "select-chevron w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400".freeze
 
-    # 레벨 번호에 붙이는 이름(한국 기준). 이 범위를 넘는 레벨은 "N단계"로 표시한다.
-    LEVEL_LABELS = { 1 => "시도", 2 => "시군구", 3 => "읍면동", 4 => "리" }.freeze
-
+    # 레벨 번호에 붙이는 이름. 지역에 저장된 종류(kind)에서 읽고, 같은 레벨에 종류가 여럿이면 가장 많은 것을 쓴다.
+    # 그 레벨의 지역이 하나도 없으면 "N레벨"로 표시한다.
     def region_level_label(level)
-      LEVEL_LABELS.fetch(level, "#{level}단계")
+      region_level_labels.fetch(level, "#{level}레벨")
     end
 
-    # 지역 연쇄 선택의 칸들. 레벨마다 한 칸씩 항상 모두 그린다(한국 기준 시도·시군구·읍면동·리).
+    # 지역 연쇄 선택의 칸들. 데이터에 있는 레벨마다 한 칸씩 항상 모두 그린다(예: 한국은 시도·시군구·읍면동·리).
     # 칸의 선택지는 "그 칸보다 얕은 레벨 중 가장 가까이 고른 지역"의 활성 하위 지역 가운데 레벨이 같은 것이다.
     # 세종처럼 레벨이 건너뛰는 경우 건너뛴 칸은 선택지가 없어 비활성으로 남는다.
     # 반환: [{ level:, label:, options_html:, disabled: }, ...]
@@ -21,7 +20,7 @@ module Admin
         current = current.parent
       end
 
-      top = [ Region.maximum(:level).to_i, LEVEL_LABELS.keys.max ].max
+      top = [ Region.maximum(:level).to_i, 1 ].max
       (1..top).map do |level|
         parent = chain.select { |r| r.level < level }.last
         selected = chain.find { |r| r.level == level }
@@ -43,7 +42,20 @@ module Admin
       chips.map { |label, key| { label: label, path: admin_regions_path(current.except(key)) } }
     end
 
+    # 지역 목록 아래에 보이는 데이터 출처 문구. 어느 데이터를 쓰는지는 배포마다 다르므로 설정에서 읽는다
+    # (`config.x.region_data_attribution`). 비어 있으면 nil이라 아무것도 보이지 않는다.
+    def region_data_attribution
+      Rails.configuration.x.region_data_attribution.presence
+    end
+
     private
+
+    # { 레벨 번호 => 종류 }. 요청마다 쿼리 한 번으로 구한다.
+    def region_level_labels
+      @region_level_labels ||= Region.group(:level, :kind).count
+                                     .group_by { |(level, _kind), _count| level }
+                                     .transform_values { |entries| entries.max_by { |(_level, kind), count| [ count, kind ] }.first.last }
+    end
 
     def region_select_slot(level, parent, selected)
       siblings = Region.where(parent_id: parent&.id, level: level)

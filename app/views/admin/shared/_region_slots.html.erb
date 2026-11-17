@@ -1,4 +1,4 @@
-<%# 지역 연쇄 선택의 칸들(시도·시군구·읍면동·리). region-select 컨트롤러가 선택에 따라 칸을 채운다. %>
+<%# 지역 연쇄 선택의 칸들(레벨마다 한 칸, 칸 이름은 지역의 종류). region-select 컨트롤러가 선택에 따라 칸을 채운다. %>
 <%# locals: region (현재 선택한 지역 또는 nil), columns (한 줄에 놓을 칸 수 클래스) %>
 <div class="grid gap-2 <%= columns %>" data-region-select-target="container">
   <% region_select_slots(region).each do |slot| %>

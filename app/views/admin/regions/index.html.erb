@@ -123,5 +123,7 @@
 
 <%= render "pagination" %>
 
-<%# 출처 표기(CC BY). 문구는 임시다: 라이선스 문구·버전과 요구 표기 형식은 아직 확인하지 못했다(VWorld 이용 조건 확인 필요). %>
-<p class="mt-4 text-xs text-gray-400">데이터 출처: 지역 계층·코드: 국토교통부 법정동코드 · 지역 경계: 브이월드(국토교통부) 법정구역정보 (CC BY)</p>
+<%# 출처 표기. 문구는 설정(config.x.region_data_attribution)에서 읽는다. 비어 있으면 표시하지 않는다. %>
+<% if region_data_attribution %>
+  <p class="mt-4 text-xs text-gray-400"><%= region_data_attribution %></p>
+<% end %>

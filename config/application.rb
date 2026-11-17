@@ -45,6 +45,11 @@ module Web
     config.active_storage.variant_processor = :disabled
     config.i18n.available_locales = [ :ko ]
 
+    # 지역 목록 아래에 표시하는 데이터 출처 문구. 적재한 지역 데이터의 출처에 맞게 배포마다 정한다.
+    # 비우면 표시하지 않는다. 문구는 임시다: CC BY의 요구 표기 형식은 이용 조건 원문과 대조하지 않았다.
+    config.x.region_data_attribution =
+      "데이터 출처: 지역 계층·코드: 국토교통부 법정동코드 · 지역 경계: 브이월드(국토교통부) 법정구역정보 (CC BY)"
+
     # Don't generate system test files.
     config.generators.system_tests = nil
   end
